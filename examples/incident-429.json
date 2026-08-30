@@ -1,0 +1,9 @@
+{
+  "status": 429,
+  "request_id": "req_example_429",
+  "client_request_id": "tp_example_429",
+  "model": "gpt-5.6-luna",
+  "latency_ms": 121,
+  "timestamp": "2026-08-26T09:40:00Z",
+  "error": "Rate limit reached for requests per minute"
+}

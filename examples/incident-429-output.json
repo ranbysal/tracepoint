@@ -1,0 +1,36 @@
+{
+  "diagnosis": {
+    "severity": "SEV-2",
+    "category": "Rate limit",
+    "likely_cause": "Request/token rate or short-burst concurrency exceeded an active limit",
+    "next_checks": [
+      "Identify the constrained dimension from the exact 429 body",
+      "Compare RPM/TPM and burst concurrency with project limits",
+      "Use bounded exponential backoff with jitter",
+      "Confirm the intended project/organization is being used"
+    ],
+    "escalation_needed": true
+  },
+  "escalation": {
+    "title": "SEV-2: Rate limit",
+    "observed": {
+      "status": 429,
+      "request_id": "req_example_429",
+      "client_request_id": "tp_example_429",
+      "model": "gpt-5.6-luna",
+      "latency_ms": 121,
+      "timestamp": "2026-08-26T09:40:00Z",
+      "error": "Rate limit reached for requests per minute"
+    },
+    "diagnosis": "Request/token rate or short-burst concurrency exceeded an active limit",
+    "next_checks": [
+      "Identify the constrained dimension from the exact 429 body",
+      "Compare RPM/TPM and burst concurrency with project limits",
+      "Use bounded exponential backoff with jitter",
+      "Confirm the intended project/organization is being used"
+    ],
+    "engineering_escalation": true,
+    "engineering_ask": "Correlate the supplied request ID(s) and timestamps with service-side telemetry and confirm expected behavior vs platform defect.",
+    "request_id_present": true
+  }
+}
