@@ -18,10 +18,10 @@ flowchart LR
 
 Tracepoint accepts two kinds of evidence:
 
-- **Synthetic scenarios** let the UI demonstrate known failure classes without creating real failures or requiring an API key.
+- **Synthetic scenarios** let the UI exercise known failure classes without creating real failures or requiring an API key.
 - **Live probes** call the OpenAI Responses API from a server-side Next.js route and record the resulting request metadata.
 
-Both paths are converted to the same `Telemetry` shape. That is deliberate: the diagnosis layer should not care whether the event came from a demo, a production probe, or eventually an imported log file.
+Both paths are converted to the same `Telemetry` shape. The diagnosis layer does not need to know whether the event came from a synthetic scenario or a live probe.
 
 ## 2. Telemetry layer
 
@@ -36,11 +36,11 @@ The normalized incident record includes:
 - attempt count
 - error or success message
 
-This preserves the context needed to compare samples and prepare an escalation.
+This preserves the context needed to compare samples and prepare a technical handoff.
 
 ## 3. Deterministic diagnosis
 
-`lib/diagnostics.ts` classifies known failure families before any generative AI is involved:
+`lib/diagnostics.ts` classifies known failure families before any generative model is involved:
 
 - 400: request validation / integration
 - 401: authentication
@@ -52,7 +52,7 @@ This preserves the context needed to compare samples and prepare an escalation.
 
 The rules return severity, likely cause, evidence, next checks, a customer-facing update, and whether engineering escalation is warranted.
 
-This design is intentional. An incident console should preserve facts and deterministic signals first. A future AI-assisted investigator can propose hypotheses, summarize evidence, and suggest next steps, but it should not replace raw telemetry or invent a root cause.
+This keeps known signals deterministic and auditable instead of asking a model to infer basic HTTP failure classes.
 
 ## 4. Live API probe
 
@@ -66,15 +66,13 @@ The route:
 4. captures HTTP status and `x-request-id`
 5. normalizes the response into `Telemetry`
 6. passes the telemetry through the diagnostic engine
-7. returns telemetry, diagnosis, and escalation packet to the UI
+7. returns telemetry, diagnosis, and escalation data to the UI
 
 The API key is never sent to the browser.
 
 ## 5. Escalation packet
 
-A weak escalation says: "the customer is getting errors."
-
-Tracepoint instead structures:
+Tracepoint structures the technical handoff around:
 
 - observed status and error
 - request/client-request IDs
@@ -86,23 +84,13 @@ Tracepoint instead structures:
 - next checks
 - a precise engineering ask
 
-The goal is to reduce back-and-forth between Support and Engineering.
+The goal is to reduce back-and-forth between Support and Engineering by preserving the evidence needed to continue an investigation.
 
 ## 6. Python tooling
 
-The Python scripts show that the same support workflow can exist outside the web UI:
+The Python scripts expose the same workflow outside the web UI:
 
 - `live_probe.py` performs a minimal API health probe and emits JSON telemetry.
 - `incident_triage.py` accepts JSON telemetry and returns a diagnosis and escalation packet.
 
-That makes the project useful as both a portfolio UI and an example of support automation/scripting.
-
-## Planned extensions
-
-- retry/backoff instrumentation with jitter
-- streaming and time-to-first-token measurements
-- latency distributions such as P50/P95/P99
-- incident history and timelines
-- JSON/CSV log ingestion
-- secret and PII redaction
-- AI-assisted hypothesis generation after deterministic triage
+This keeps the incident model reusable across both the application and command-line workflows.
