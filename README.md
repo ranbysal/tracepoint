@@ -2,23 +2,19 @@
 
 **AI Support Incident Console**
 
-Tracepoint is a support-engineering portfolio project focused on a real operational problem: turning ambiguous OpenAI API failures into structured, evidence-backed incident investigations.
+Tracepoint is an incident triage console for diagnosing API failures, normalizing request telemetry, and turning support evidence into a consistent technical handoff.
 
-It demonstrates the workflow behind high-quality technical support rather than another generic chatbot:
+It includes a browser-based incident console, a live OpenAI Responses API probe, synthetic failure scenarios, and Python command-line tooling for reproducing the same triage workflow outside the UI.
 
-- reproduce known failure classes with synthetic incidents
-- run a live OpenAI Responses API health probe
-- capture HTTP status, latency, timestamps, `x-request-id`, and a caller-generated `X-Client-Request-Id`
-- classify 400, 401, 403, 429, timeout, and 5xx incidents
-- produce deterministic next checks and customer-facing status updates
-- generate an engineering-ready escalation packet
-- provide a Python triage CLI and a Python live API probe
+## What it does
 
-## Why this project exists
-
-Complex API support is mostly about evidence quality. A good escalation should answer: what failed, when, where, how often, with which request IDs, under which model/project context, and how to reproduce it.
-
-OpenAI's public support guidance recommends preserving request IDs and correlated timestamps for API troubleshooting. It also recommends bounded exponential backoff for rate-limit errors and filtering troubleshooting data to the relevant model/project/time range.
+- Runs synthetic 400, 401, 403, 429, timeout, and 5xx incident scenarios.
+- Runs a live server-side probe against the OpenAI Responses API.
+- Captures HTTP status, latency, timestamps, model context, `x-request-id`, and a caller-generated `X-Client-Request-Id`.
+- Normalizes incident data into a shared telemetry model.
+- Classifies common failure families with deterministic rules.
+- Produces evidence, recommended diagnostic checks, customer-facing status updates, and engineering escalation packets.
+- Provides Python tools for live probing and JSON-based incident triage.
 
 ## Stack
 
@@ -27,7 +23,39 @@ OpenAI's public support guidance recommends preserving request IDs and correlate
 - TypeScript
 - Python 3
 - OpenAI Responses API over raw HTTP
-- Vercel-ready frontend/server route
+
+## Architecture
+
+```text
+Customer report / synthetic scenario / live probe
+                     |
+                     v
+             Telemetry normalization
+                     |
+                     v
+            Deterministic diagnosis
+                     |
+          +----------+----------+
+          |          |          |
+          v          v          v
+       Evidence   Next checks   Escalation packet
+                              + customer update
+```
+
+The browser never receives the OpenAI API key. Live requests are made through the server-side `/api/probe` route, normalized into the same telemetry shape used by the synthetic scenarios, and then passed through the diagnostic engine.
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design.
+
+## Incident model
+
+| Failure | Signal | Primary investigation |
+| --- | --- | --- |
+| Request validation | 400 | schema, payload, model/endpoint compatibility |
+| Authentication | 401 | API key and runtime/project configuration |
+| Authorization | 403 | project/model permissions and policy |
+| Rate limit | 429 | RPM/TPM, bursts, retry strategy, project limits |
+| Timeout | no completed HTTP response | client/proxy/network path vs upstream latency |
+| Server error | 5xx | request IDs, timestamps, model scope, error percentage |
 
 ## Run locally
 
@@ -40,11 +68,11 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-The synthetic incident buttons work without an API key. The live probe requires `OPENAI_API_KEY`.
+Synthetic incidents work without an API key. The live probe requires `OPENAI_API_KEY`.
 
-## Python support tooling
+## Python tools
 
-Run a synthetic incident through the deterministic triage engine:
+Run an incident through the deterministic triage engine:
 
 ```bash
 python scripts/incident_triage.py examples/incident-429.json
@@ -57,57 +85,25 @@ export OPENAI_API_KEY="..."
 python scripts/live_probe.py
 ```
 
-Then pipe the resulting telemetry into the triage tool:
+Pipe live telemetry directly into triage:
 
 ```bash
 python scripts/live_probe.py > /tmp/probe.json
 python scripts/incident_triage.py /tmp/probe.json
 ```
 
-## Incident model
-
-Tracepoint currently distinguishes:
-
-| Failure | Signal | Primary investigation |
-| --- | --- | --- |
-| Request validation | 400 | schema, payload, model/endpoint compatibility |
-| Authentication | 401 | API key and runtime/project configuration |
-| Authorization | 403 | project/model permissions and policy |
-| Rate limit | 429 | RPM/TPM, bursts, retry strategy, project limits |
-| Timeout | no completed HTTP response | client/proxy/network path vs upstream latency |
-| Server error | 5xx | request IDs, timestamps, model scope, error percentage |
-
-## Security notes
-
-- API keys remain server-side.
-- The browser never receives `OPENAI_API_KEY`.
-- Support evidence should never include secrets or Authorization headers.
-- This project stores no incident data by default.
-
-## Next milestones
-
-1. Incident history with SQLite/Postgres.
-2. Retry simulation with exponential backoff + jitter visualization.
-3. Streaming probe and first-token latency measurement.
-4. Batch incident ingestion from JSON/CSV logs.
-5. Redaction layer for secrets/PII before escalation.
-6. AI-assisted diagnosis as a secondary layer after deterministic triage.
-7. Automated tests for classification and escalation behavior.
-
-## Portfolio framing
-
-**Tracepoint - AI Support Incident Console**  
-Built a support engineering lab for OpenAI API incidents that captures request IDs, latency, timestamps, status codes, and reproduction context; classifies common integration failures; and generates structured customer updates and engineering escalation packets. Added Python tooling for live probes and deterministic incident triage.
-
 ## Tests
 
 ```bash
 python -m unittest discover -s tests -v
+npm run typecheck
+npm run build
 ```
 
-## Reference material
+GitHub Actions runs the Python tests and web checks on pushes to `main` and on pull requests.
 
-- OpenAI Responses API: https://developers.openai.com/api/reference/
-- OpenAI model guidance: https://developers.openai.com/api/docs/models
-- OpenAI rate-limit troubleshooting: https://help.openai.com/en/articles/6891753-api-rate-limit-advice
-- OpenAI API errors and latency troubleshooting: https://help.openai.com/en/articles/1000499
+## Security
+
+- `OPENAI_API_KEY` remains server-side.
+- Authorization headers and secrets are not included in incident evidence.
+- No incident data is persisted by default.
